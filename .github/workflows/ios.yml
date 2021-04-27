@@ -1,0 +1,70 @@
+name: iOS starter workflow
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build and Test default scheme using any available iPhone simulator
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set Default Scheme
+        run: |
+          scheme_list=$(xcodebuild -list -json | tr -d "\n")
+          default=$(echo $scheme_list | ruby -e "require 'json'; puts JSON.parse(STDIN.gets)['project']['targets'][0]")
+          echo $default | cat >default
+          echo Using default scheme: $default
+      - name: Build
+        env:
+          scheme: ${{ 'default' }}
+          platform: ${{ 'iOS Simulator' }}
+        run: |
+          device=`instruments -s -devices | grep -oE 'iPhone.*?[^\(]+' | head -1 | awk '{$1=$1;print}'`
+          if [ $scheme = default ]; then scheme=$(cat default); fi
+          if [ "`ls -A | grep -i \\.xcworkspace\$`" ]; then filetype_parameter="workspace" && file_to_build="`ls -A | grep -i \\.xcworkspace\$`"; else filetype_parameter="project" && file_to_build="`ls -A | grep -i \\.xcodeproj\$`"; fi
+          file_to_build=`echo $file_to_build | awk '{$1=$1;print}'`
+          xcodebuild build-for-testing -scheme "$scheme" -"$filetype_parameter" "$file_to_build" -destination "platform=$platform,name=$device"
+      - name: Test
+        env:
+          scheme: ${{ 'default' }}
+          platform: ${{ 'iOS Simulator' }}- name: Godot Export
+  # You may pin to the exact commit or the version.
+  # uses: firebelley/godot-export@969afbacb511569413804d453eaddb1a33826382
+  uses: firebelley/godot-export@v2.8.0
+  with:
+    # The download url of the 64 bit Linux Headless Godot executable.
+    godot_executable_download_url: 
+    # The url of the export templates corresponding to the Godot executable version.
+    godot_export_templates_download_url: 
+    # The relative path containing the "project.godot" file.
+    relative_project_path: 
+    # If exports should be archived.
+    archive_export_output: # optional
+    # If exports that result in single files should be archived.
+    archive_single_release_output: # optional, default is true
+    # The version which new releases start at.
+    base_version: # optional, default is 0.0.1
+    # If releases should be automatically created.
+    create_release: # optional, default is true
+    # If release notes should be automatically generated based on commit history.
+    generate_release_notes: # optional
+    # If set to true, exports will be moved to directory defined in "export_presets.cfg" relative to the root of the Git repository. Prioritized over "relative_export_path".
+    use_preset_export_path: # optional
+    # If provided, exports will be moved to this directory relative to the root of the Git repository.
+    relative_export_path: # optional, default is 
+    # If Windows executable icons should be updated with the preset's .ico file.
+    update_windows_icons: # optional
+    # If should export with debugging tools.
+    export_debug: # optional
+        run: |
+          device=`instruments -s -devices | grep -oE 'iPhone.*?[^\(]+' | head -1 | awk '{$1=$1;print}'`
+          if [ $scheme = default ]; then scheme=$(cat default); fi
+          if [ "`ls -A | grep -i \\.xcworkspace\$`" ]; then filetype_parameter="workspace" && file_to_build="`ls -A | grep -i \\.xcworkspace\$`"; else filetype_parameter="project" && file_to_build="`ls -A | grep -i \\.xcodeproj\$`"; fi
+          file_to_build=`echo $file_to_build | awk '{$1=$1;print}'`
+          xcodebuild test-without-building -scheme "$scheme" -"$filetype_parameter" "$file_to_build" -destination "platform=$platform,name=$device"
